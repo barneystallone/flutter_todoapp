@@ -23,32 +23,40 @@ class _HomePageState extends State<HomePage> {
   bool _showAddBox = false;
 
   final SharedPrefs _prefs = SharedPrefs();
+  int _statusFilterIdx = 0;
+  String _searchText = '';
+  List<TodoModel> _initTodos = [];
+  List<TodoModel> _filterTodos = [];
   List<TodoModel> _todos = [];
-  List<TodoModel> _searches = [];
 
   @override
   void initState() {
     super.initState();
-    _getTodos();
+    initTodos();
   }
 
-  _getTodos() {
+  initTodos() {
     _prefs.getTodos().then((value) {
-      _todos = value ?? todosInit;
-      _searches = [..._todos];
+      _initTodos = value ?? todosInit;
+      _todos = [..._initTodos];
+      _filterTodos = [..._initTodos];
       setState(() {});
     });
   }
 
-  _searchTodos(String searchText) {
-    searchText = searchText.toLowerCase();
-    // _searches.clear();
-    // for (var element in _todos) {
-    //   if ((element.text ?? '').toLowerCase().contains(searchText)) {
-    //     _searches.add(element);
-    //   }
-    // }
-    _searches = _todos
+  // gọi method sau khi update initTodos (thêm, sửa, xóa todo)
+  setFilterTodos() {
+    _filterTodos = _statusFilterIdx == 0
+        ? _initTodos
+        : _initTodos
+            .where((element) =>
+                (element.isDone ?? false) == ((_statusFilterIdx - 1) != 0))
+            .toList();
+  }
+
+  getTodos() {
+    String searchText = _searchText.toLowerCase().trim();
+    _todos = _filterTodos
         .where((element) =>
             (element.text ?? '').toLowerCase().contains(searchText))
         .toList();
@@ -102,23 +110,48 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   children: [
                     SearchBox(
-                        onChanged: (value) =>
-                            setState(() => _searchTodos(value)),
+                        onChanged: (value) => setState(() {
+                              _searchText = value;
+                              getTodos();
+                            }),
                         controller: _searchController),
-                    const Divider(
-                        height: 32.6, thickness: 1.36, color: AppColor.grey),
+                    Row(
+                      children: List.generate(
+                        todosStatus.length,
+                        (int index) => Padding(
+                          padding: const EdgeInsets.only(
+                              top: 12.0, right: 12.0, bottom: 16.0),
+                          child: Center(
+                            child: FilterChip(
+                              label: Text(todosStatus[index]),
+                              selected: index == _statusFilterIdx,
+                              onSelected: (bool value) => setState(() {
+                                if (_statusFilterIdx != index) {
+                                  _statusFilterIdx = index;
+                                  setFilterTodos();
+                                  // click Doing -> false, Done -> true
+                                }
+                                getTodos();
+                              }),
+                              side: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                     ListView.separated(
                       physics: const NeverScrollableScrollPhysics(),
                       shrinkWrap: true,
                       padding: EdgeInsets.zero,
-                      itemCount: _searches.length,
+                      itemCount: _todos.length,
                       itemBuilder: (context, index) {
-                        TodoModel todo = _searches.reversed.toList()[index];
+                        TodoModel todo = _todos.reversed.toList()[index];
                         return TodoItem(
                           onTap: () {
                             setState(() {
                               todo.isDone = !(todo.isDone ?? false);
-                              _prefs.addTodos(_todos);
+                              _prefs.addTodos(_initTodos);
+                              setFilterTodos();
                             });
                           },
                           onDeleted: () async {
@@ -153,9 +186,10 @@ class _HomePageState extends State<HomePage> {
                             );
                             if (status ?? false) {
                               setState(() {
+                                _initTodos.remove(todo);
+                                setFilterTodos();
                                 _todos.remove(todo);
-                                _searches.remove(todo);
-                                _prefs.addTodos(_todos);
+                                _prefs.addTodos(_initTodos);
                               });
                             }
                           },
@@ -226,17 +260,18 @@ class _HomePageState extends State<HomePage> {
                     }
 
                     int id = 1;
-                    if (_todos.isNotEmpty) {
-                      id = (_todos.last.id ?? 0) + 1;
+                    if (_initTodos.isNotEmpty) {
+                      id = (_initTodos.last.id ?? 0) + 1;
                     }
                     TodoModel todo = TodoModel()
                       ..id = id
                       ..text = text;
-                    _todos.add(todo);
-                    _prefs.addTodos(_todos);
+                    _initTodos.add(todo);
+                    _prefs.addTodos(_initTodos);
                     _addController.clear();
                     _searchController.clear();
-                    _searchTodos('');
+                    setFilterTodos();
+                    getTodos();
                     setState(() {});
                     FocusScope.of(context).unfocus();
                   },

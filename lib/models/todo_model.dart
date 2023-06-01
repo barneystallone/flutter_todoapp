@@ -16,6 +16,7 @@ class TodoModel {
   }
 }
 
+final todosStatus = ['All', 'Doing', 'Done'];
 final todosInit = [
   TodoModel(id: 1, text: 'Dinner with Jenny'),
   TodoModel(id: 2, text: 'Work on mobile apps for 2 hours'),
