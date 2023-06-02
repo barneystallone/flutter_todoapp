@@ -36,12 +36,85 @@ class _ListTodoState extends State<ListTodo> {
   }
 
   initTodos() {
-    _prefs.getTodos().then((value) {
-      _initTodos = value ?? todosInit;
+    _prefs.getTodos(isDeleted: widget.isRestorePage).then((value) {
+      _initTodos = value ?? (!widget.isRestorePage ? todosInit : []);
       _todos = [..._initTodos];
       _filterTodos = [..._initTodos];
       setState(() {});
     });
+  }
+
+  // Home -> Xóa todo trong todos và thêm todo đóvào deletedTodos
+  // Restore -> Xóa todo trong deletedTodos
+  removeTodo(TodoModel todo) {
+    setState(() {
+      _initTodos.remove(todo);
+      setFilterTodos();
+      _todos.remove(todo);
+      _prefs.addTodos(todos: _initTodos, isDeleted: widget.isRestorePage);
+      // Add to deleted todos
+      if (!widget.isRestorePage) {
+        _prefs.getTodos(isDeleted: true).then((value) {
+          value = value ?? [];
+          value.add(todo);
+          _prefs.addTodos(todos: value, isDeleted: true);
+        });
+      }
+    });
+  }
+
+  _showDialog({required String title, required VoidCallback successCb}) async {
+    bool? status = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: const Text('😍'),
+        content: Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontSize: 22.0),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    if (status ?? false) {
+      successCb();
+    }
+  }
+
+  clickTodo(TodoModel todo) {
+    if (!widget.isRestorePage) {
+      return setState(() {
+        todo.isDone = !(todo.isDone ?? false);
+        _prefs.addTodos(todos: _initTodos, isDeleted: widget.isRestorePage);
+        setFilterTodos();
+      });
+    }
+    // Restore -> xóa khỏi deletedTodos và thêm vào todoList
+    _showDialog(
+        title: 'Restore this todo?',
+        successCb: () {
+          _prefs.getTodos().then((value) {
+            value = value ?? [];
+            value.add(todo);
+            _prefs.addTodos(todos: value);
+          });
+          removeTodo(todo);
+        });
   }
 
   // gọi method sau khi update initTodos (thêm, sửa, xóa todo)
@@ -112,49 +185,12 @@ class _ListTodoState extends State<ListTodo> {
                       TodoModel todo = _todos.reversed.toList()[index];
                       return TodoItem(
                         onTap: () {
-                          setState(() {
-                            todo.isDone = !(todo.isDone ?? false);
-                            _prefs.addTodos(_initTodos);
-                            setFilterTodos();
-                          });
+                          clickTodo(todo);
                         },
                         onDeleted: () async {
-                          bool? status = await showDialog<bool>(
-                            context: context,
-                            builder: (BuildContext context) => AlertDialog(
-                              title: const Text('😍'),
-                              content: Row(
-                                children: const <Widget>[
-                                  Expanded(
-                                    child: Text(
-                                      'Do you want to remove the todo?',
-                                      style: TextStyle(fontSize: 22.0),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context, false),
-                                  child: const Text('Cancel'),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text('OK'),
-                                ),
-                              ],
-                            ),
-                          );
-                          if (status ?? false) {
-                            setState(() {
-                              _initTodos.remove(todo);
-                              setFilterTodos();
-                              _todos.remove(todo);
-                              _prefs.addTodos(_initTodos);
-                            });
-                          }
+                          _showDialog(
+                              title: 'Do you want to remove the todo?',
+                              successCb: () => removeTodo(todo));
                         },
                         text: todo.text ?? '-:-',
                         isDone: todo.isDone ?? false,
@@ -168,96 +204,98 @@ class _ListTodoState extends State<ListTodo> {
             ),
           ),
         ),
-        Positioned(
-          left: 20.0,
-          right: 20.0,
-          bottom: 14.6,
-          child: Row(
-            children: [
-              Expanded(
-                child: Visibility(
-                  visible: _showAddBox,
+        if (!widget.isRestorePage)
+          Positioned(
+            left: 20.0,
+            right: 20.0,
+            bottom: 14.6,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Visibility(
+                    visible: _showAddBox,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0, vertical: 5.6),
+                      decoration: BoxDecoration(
+                        color: AppColor.white,
+                        border: Border.all(color: AppColor.blue),
+                        borderRadius: BorderRadius.circular(10.0),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: AppColor.shadow,
+                            offset: Offset(0.0, 3.0),
+                            blurRadius: 10.0,
+                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _addController,
+                        focusNode: _addFocus,
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          hintText: 'Add a new todo item',
+                          hintStyle: TextStyle(color: AppColor.grey),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 18.0),
+                GestureDetector(
+                  onTap: () {
+                    _showAddBox = !_showAddBox;
+
+                    if (_showAddBox) {
+                      setState(() {});
+                      _addFocus.requestFocus();
+                      return;
+                    }
+
+                    String text = _addController.text.trim();
+                    if (text.isEmpty) {
+                      setState(() {});
+                      FocusScope.of(context).unfocus();
+                      return;
+                    }
+
+                    int id = 1;
+                    if (_initTodos.isNotEmpty) {
+                      id = (_initTodos.last.id ?? 0) + 1;
+                    }
+                    TodoModel todo = TodoModel()
+                      ..id = id
+                      ..text = text;
+                    _initTodos.add(todo);
+                    _prefs.addTodos(todos: _initTodos);
+                    _addController.clear();
+                    _searchController.clear();
+                    _searchText = '';
+                    setFilterTodos();
+                    getTodos();
+                    setState(() {});
+                    FocusScope.of(context).unfocus();
+                  },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0, vertical: 5.6),
+                    padding: const EdgeInsets.all(14.6),
                     decoration: BoxDecoration(
-                      color: AppColor.white,
-                      border: Border.all(color: AppColor.blue),
+                      color: AppColor.blue,
                       borderRadius: BorderRadius.circular(10.0),
                       boxShadow: const [
                         BoxShadow(
                           color: AppColor.shadow,
                           offset: Offset(0.0, 3.0),
-                          blurRadius: 10.0,
+                          blurRadius: 6.0,
                         ),
                       ],
                     ),
-                    child: TextField(
-                      controller: _addController,
-                      focusNode: _addFocus,
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        hintText: 'Add a new todo item',
-                        hintStyle: TextStyle(color: AppColor.grey),
-                      ),
-                    ),
+                    child: const Icon(Icons.add,
+                        size: 32.0, color: AppColor.white),
                   ),
                 ),
-              ),
-              const SizedBox(width: 18.0),
-              GestureDetector(
-                onTap: () {
-                  _showAddBox = !_showAddBox;
-
-                  if (_showAddBox) {
-                    setState(() {});
-                    _addFocus.requestFocus();
-                    return;
-                  }
-
-                  String text = _addController.text.trim();
-                  if (text.isEmpty) {
-                    setState(() {});
-                    FocusScope.of(context).unfocus();
-                    return;
-                  }
-
-                  int id = 1;
-                  if (_initTodos.isNotEmpty) {
-                    id = (_initTodos.last.id ?? 0) + 1;
-                  }
-                  TodoModel todo = TodoModel()
-                    ..id = id
-                    ..text = text;
-                  _initTodos.add(todo);
-                  _prefs.addTodos(_initTodos);
-                  _addController.clear();
-                  _searchController.clear();
-                  setFilterTodos();
-                  getTodos();
-                  setState(() {});
-                  FocusScope.of(context).unfocus();
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(14.6),
-                  decoration: BoxDecoration(
-                    color: AppColor.blue,
-                    borderRadius: BorderRadius.circular(10.0),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: AppColor.shadow,
-                        offset: Offset(0.0, 3.0),
-                        blurRadius: 6.0,
-                      ),
-                    ],
-                  ),
-                  child:
-                      const Icon(Icons.add, size: 32.0, color: AppColor.white),
-                ),
-              ),
-            ],
-          ),
-        ),
+              ],
+            ),
+          )
       ],
     );
   }

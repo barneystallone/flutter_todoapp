@@ -61,7 +61,6 @@ class _HomePageState extends State<HomePage> {
             }
           },
           title: _titleList[_currentPageIndex]),
-      // body: [ListTodo(), ListTodo()][_currentPageIndex],
       body: Stack(
         children: [
           PageView.builder(
