@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:todoapp_v1/pages/required_auth.dart';
+import 'package:todoapp_v1/pages/splash_page.dart';
 import 'pages/home_page.dart';
 
 void main() {
@@ -27,7 +29,7 @@ class MyApp extends StatelessWidget {
       title: 'Flutter Demo',
       theme: ThemeData(useMaterial3: true),
       // home: const HomePage(title: 'Todos'),
-      home: const HomePage(),
+      home: const RequiredAuth(),
     );
   }
 }

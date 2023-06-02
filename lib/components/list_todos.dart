@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../components/td_app_bar.dart';
-import '../components/search_box.dart';
-import '../components/todo_item.dart';
+import 'td_app_bar.dart';
+import 'search_box.dart';
+import 'todo_item.dart';
 import '../models/todo_model.dart';
 import '../resources/app_color.dart';
 import '../services/local/shared_prefs.dart';

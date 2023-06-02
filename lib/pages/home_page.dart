@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:todoapp_v1/pages/list_todos.dart';
+import '../components/list_todos.dart';
 import '../components/td_app_bar.dart';
 import '../resources/app_color.dart';
 

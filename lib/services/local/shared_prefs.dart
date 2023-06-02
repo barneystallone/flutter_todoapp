@@ -23,4 +23,14 @@ class SharedPrefs {
     SharedPreferences prefs = await _prefs;
     prefs.setString(key, jsonEncode(maps));
   }
+
+  Future<String?> getUsername() async {
+    SharedPreferences prefs = await _prefs;
+    return prefs.getString('username');
+  }
+
+  Future<void> setUsername(String username) async {
+    SharedPreferences prefs = await _prefs;
+    prefs.setString('username', username);
+  }
 }
