@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:todoapp_v1/pages/required_auth.dart';
-import 'package:todoapp_v1/pages/splash_page.dart';
-import 'pages/home_page.dart';
+import 'pages/required_auth.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

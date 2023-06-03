@@ -33,4 +33,9 @@ class SharedPrefs {
     SharedPreferences prefs = await _prefs;
     prefs.setString('username', username);
   }
+
+  Future<void> logOut() async {
+    SharedPreferences prefs = await _prefs;
+    prefs.remove('username');
+  }
 }

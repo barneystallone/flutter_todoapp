@@ -1,9 +1,11 @@
 import 'package:email_validator/email_validator.dart';
 import 'package:flutter/material.dart';
 import 'package:hexcolor/hexcolor.dart';
-import 'package:todoapp_v1/components/auth_textfield_group.dart';
-import 'package:todoapp_v1/components/custom_button.dart';
-import 'package:todoapp_v1/models/user_model.dart';
+import 'package:todoapp_v1/pages/home_page.dart';
+import '../services/local/shared_prefs.dart';
+import './auth_textfield_group.dart';
+import './custom_button.dart';
+import '../models/user_model.dart';
 
 import 'auth_header.dart';
 
@@ -20,21 +22,20 @@ class _LoginFormState extends State<LoginForm> {
   bool _showPW = false;
   String? _emailErrorMessage;
   String? _pwErrorMessage;
-  String _submitErrorMessage = 'a';
+  String? _submitErrorMessage;
+  final SharedPrefs _prefs = SharedPrefs();
 
   TextEditingController emailController = TextEditingController();
   TextEditingController pwController = TextEditingController();
 
-  validateEmail(String value) {
+  void validateEmail(String value) {
     if (value.isEmpty) {
       setState(() {
         _emailErrorMessage = "Email không được để trống";
-        print(_emailErrorMessage);
       });
     } else if (!EmailValidator.validate(value, true)) {
       setState(() {
         _emailErrorMessage = "Địa chỉ Email không hợp lệ";
-        print(_emailErrorMessage);
       });
     } else {
       setState(() {
@@ -43,7 +44,7 @@ class _LoginFormState extends State<LoginForm> {
     }
   }
 
-  validatePW(String value) {
+  void validatePW(String value) {
     if (value.isEmpty) {
       setState(() {
         _pwErrorMessage = "Password không được để trống";
@@ -68,22 +69,28 @@ class _LoginFormState extends State<LoginForm> {
     if (password.isEmpty) {
       return validatePW(password);
     }
-    if (_emailErrorMessage != null && _pwErrorMessage != null) {
-      UserModel user =
-          users.where((element) => element.username == email).toList()[0];
-      print(user.password);
-      if (user == null) {
-        setState(() {
-          _submitErrorMessage = 'Tài khoản không tồn tại';
-        });
-        return;
-      }
+    if (_emailErrorMessage == null && _pwErrorMessage == null) {
+      try {
+        UserModel user =
+            users.where((element) => element.username == email).toList()[0];
 
-      if (user.password != password) {
-        setState(() {
-          _submitErrorMessage = 'Sai tên đăng nhập hoặc mật khẩu';
+        if (user.password != password) {
+          return setState(() {
+            _submitErrorMessage = 'Sai tên đăng nhập hoặc mật khẩu';
+          });
+        }
+        _prefs.setUsername(user.username as String);
+        Navigator.push(
+            context, MaterialPageRoute(builder: (context) => const HomePage()));
+      } catch (e) {
+        if (e.toString().contains('RangeError')) {
+          return setState(() {
+            _submitErrorMessage = 'Không tìm thấy tài khoản $email ';
+          });
+        }
+        return setState(() {
+          _submitErrorMessage = e.toString();
         });
-        return;
       }
     }
   }
@@ -120,8 +127,9 @@ class _LoginFormState extends State<LoginForm> {
                     if (_submitErrorMessage != null)
                       Center(
                         child: Text(
-                          _submitErrorMessage,
-                          style: TextStyle(color: Colors.red, fontSize: 16),
+                          _submitErrorMessage as String,
+                          style:
+                              const TextStyle(color: Colors.red, fontSize: 16),
                         ),
                       ),
                     AuthTextFieldGroup(
@@ -154,23 +162,13 @@ class _LoginFormState extends State<LoginForm> {
                         });
                       },
                     ),
-                    InkWell(
-                        onTap: () => handleSubmit(),
-                        child: CustomButton(title: widget.title))
+                    CustomButton(
+                      title: widget.title,
+                      onPressed: handleSubmit,
+                    )
                   ],
                 ),
               )),
-          // Transform.translate(
-          //   offset: const Offset(0, -50),
-          //   child: Container(
-          //     color: HexColor("#fed8c3"),
-          //     child: Image.asset(
-          //       'assets/images/plants.png',
-          //       scale: 1.5,
-          //       width: double.infinity,
-          //     ),
-          //   ),
-          // ),
         ]));
   }
 }
